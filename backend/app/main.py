@@ -2,6 +2,7 @@ from fastapi import FastAPI
 
 from app.api.upload import router as upload_router
 from app.api.cases import router as cases_router
+from app.api.auth import router as auth_router
 from app.database.database import Base, engine
 from app.database import models
 
@@ -43,4 +44,11 @@ app.include_router(
     cases_router,
     prefix="/api",
     tags=["Cases"]
+)
+
+
+app.include_router(
+    auth_router,
+    prefix="/api/auth",
+    tags=["Authentication"]
 )

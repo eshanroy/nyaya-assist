@@ -4,7 +4,7 @@ from app.database.database import SessionLocal
 from app.database.models import Case
 
 
-def save_case(filename: str, analysis: dict):
+def save_case(filename: str, analysis: dict, user_id: int):
     db = SessionLocal()
 
     try:
@@ -23,7 +23,8 @@ def save_case(filename: str, analysis: dict):
             ),
             legal_sections=json.dumps(
                 analysis.get("legal_sections", [])
-            )
+            ),
+            user_id=user_id,
         )
 
         db.add(new_case)
@@ -31,6 +32,10 @@ def save_case(filename: str, analysis: dict):
         db.refresh(new_case)
 
         return new_case
+
+    except Exception:
+        db.rollback()
+        raise
 
     finally:
         db.close()
