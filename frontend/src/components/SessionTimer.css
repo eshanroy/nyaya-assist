@@ -1,0 +1,59 @@
+.session-timer {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 9999;
+
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  padding: 14px 20px;
+  border: 2px solid #a83b00;
+  border-radius: 999px;
+
+  background: #ff7900;
+  color: #ffffff;
+
+  font-size: 14px;
+  font-weight: 800;
+  box-shadow: 0 5px 18px rgba(0, 0, 0, 0.25);
+}
+
+.session-timer-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #ffffff;
+  flex-shrink: 0;
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.25);
+}
+
+.session-timer-warning {
+  background: #c62828;
+  border-color: #8e0000;
+  color: #ffffff;
+  animation: timer-pulse 1.2s ease-in-out infinite alternate;
+}
+
+.session-timer-warning .session-timer-dot {
+  background: #ffffff;
+}
+
+@keyframes timer-pulse {
+  from {
+    box-shadow: 0 5px 18px rgba(0, 0, 0, 0.25);
+  }
+  to {
+    box-shadow: 0 5px 22px rgba(198, 40, 40, 0.65);
+  }
+}
+
+@media (max-width: 600px) {
+  .session-timer {
+    bottom: 14px;
+    right: 14px;
+    padding: 11px 15px;
+    font-size: 13px;
+  }
+}

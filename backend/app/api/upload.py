@@ -19,14 +19,12 @@ async def upload_pdf(
     current_user=Depends(get_current_user),
 ):
     try:
-        # Check the declared file type
         if file.content_type != "application/pdf":
             raise HTTPException(
                 status_code=400,
                 detail="Only PDF files are allowed.",
             )
 
-        # Read at most 10 MB + 1 byte to detect oversized files
         content = await file.read(MAX_FILE_SIZE + 1)
 
         if not content:
@@ -41,16 +39,13 @@ async def upload_pdf(
                 detail="PDF file size must not exceed 10 MB.",
             )
 
-        # Verify the PDF signature
         if not content.startswith(PDF_SIGNATURE):
             raise HTTPException(
                 status_code=400,
                 detail="The uploaded file is not a valid PDF file.",
             )
 
-        # Reset the file position before text extraction
         await file.seek(0)
-
         extracted_text = await extract_text_from_pdf(file)
 
         if not extracted_text.strip():
@@ -59,10 +54,8 @@ async def upload_pdf(
                 detail="Could not extract text from this PDF.",
             )
 
-        # Analyze document using AI
         analysis = analyze_document(extracted_text)
 
-        # Save the case under the authenticated user
         saved_case = save_case(
             filename=file.filename or "uploaded.pdf",
             analysis=analysis,

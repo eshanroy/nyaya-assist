@@ -1,0 +1,263 @@
+
+.case-details-page {
+  min-height: 100vh;
+  background: #f8f6f2;
+  color: #211d19;
+}
+
+.case-details-navbar {
+  min-height: 76px;
+  padding: 16px 7%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  background: #171512;
+  color: #fff;
+  border-bottom: 1px solid #39332c;
+}
+
+.case-details-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 11px;
+  color: #fff;
+  text-decoration: none;
+  font-size: 19px;
+  font-weight: 600;
+}
+
+.case-details-brand strong {
+  color: #f59e0b;
+}
+
+.case-details-brand-icon {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  color: #171512;
+  background: #f59e0b;
+}
+
+.case-details-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #f5eee4;
+  text-decoration: none;
+  font-size: 14px;
+}
+
+.case-details-back:hover {
+  color: #f59e0b;
+}
+
+.case-details-main {
+  width: min(900px, 86%);
+  margin: 0 auto;
+  padding: 52px 0 80px;
+}
+
+.case-details-kicker {
+  display: inline-block;
+  margin-bottom: 12px;
+  color: #b66a08;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 2px;
+}
+
+.case-details-main > h1 {
+  margin: 0;
+  font-size: clamp(30px, 4vw, 42px);
+  letter-spacing: -1.2px;
+  overflow-wrap: anywhere;
+}
+
+.case-details-subtitle {
+  margin: 12px 0 30px;
+  color: #71695f;
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.case-details-card {
+  margin-bottom: 18px;
+  padding: 25px;
+  border: 1px solid #e8dfd2;
+  border-radius: 15px;
+  background: #fffdf9;
+  box-shadow: 0 6px 22px rgb(47 35 20 / 4%);
+}
+
+.case-details-card h2 {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 0 0 15px;
+  font-size: 19px;
+  letter-spacing: -0.3px;
+}
+
+.case-details-card h2 svg {
+  flex-shrink: 0;
+  color: #b66a08;
+}
+
+.case-details-card p,
+.case-details-card li {
+  color: #62594f;
+  font-size: 14px;
+  line-height: 1.85;
+  overflow-wrap: anywhere;
+}
+
+.case-details-card p {
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.case-details-card ul {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding-left: 22px;
+}
+
+.case-details-card li::marker {
+  color: #c17b13;
+}
+
+.case-details-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 70px 20px;
+  color: #70675c;
+}
+
+.case-details-spinner {
+  color: #c17b13;
+  animation: case-details-spin 1s linear infinite;
+}
+
+@keyframes case-details-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.case-details-error {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 18px;
+  border: 1px solid #efc4bc;
+  border-radius: 12px;
+  background: #fff0ed;
+  color: #a12b1c;
+}
+
+.case-details-error span {
+  flex: 1;
+}
+
+.case-details-error button {
+  padding: 8px 12px;
+  border: 1px solid #d99c91;
+  border-radius: 8px;
+  background: #fff;
+  color: #8d2519;
+  cursor: pointer;
+}
+
+@media (max-width: 600px) {
+  .case-details-navbar {
+    padding: 14px 5%;
+  }
+
+  .case-details-main {
+    width: 90%;
+    padding-top: 35px;
+  }
+
+  .case-details-card {
+    padding: 20px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .case-details-spinner {
+    animation: none;
+  }
+}
+
+
+/* Translation controls */
+.case-translation-controls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 24px 0;
+  padding: 18px;
+  background: #fff8ee;
+  border: 1px solid #ead8bf;
+  border-radius: 14px;
+}
+
+.case-translation-controls label {
+  font-size: 14px;
+  font-weight: 700;
+  color: #49351f;
+}
+
+.case-translation-controls select {
+  min-width: 150px;
+  padding: 10px 12px;
+  border: 1px solid #d8c4a8;
+  border-radius: 8px;
+  background: #fff;
+  color: #33271c;
+  font: inherit;
+}
+
+.case-translation-controls button {
+  padding: 11px 16px;
+  border: none;
+  border-radius: 8px;
+  background: #a45c00;
+  color: #fff;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.case-translation-controls button:hover {
+  background: #7d4600;
+}
+
+.case-translation-controls button:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.case-translation-error {
+  margin: 12px 0;
+  color: #b42318;
+  font-weight: 600;
+}
+
+.case-details-translation-heading {
+  margin: 28px 0 12px;
+}
+
+.case-details-translation-heading h2 {
+  margin: 0;
+  color: #8b4b00;
+  font-size: 22px;
+}

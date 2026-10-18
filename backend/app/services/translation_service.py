@@ -1,4 +1,6 @@
+
 import json
+import time
 
 from app.services.ai_service import client
 
@@ -7,14 +9,151 @@ SUPPORTED_LANGUAGES = {
     "english": "English",
     "hindi": "Hindi",
     "kannada": "Kannada",
-    "telugu": "Telugu"
+    "telugu": "Telugu",
 }
 
+MODEL = "openai/gpt-oss-20b"
+MAX_ATTEMPTS = 3
+BATCH_SIZE = 15
 
-def translate_analysis(analysis: dict, target_language: str):
+
+def _translate_batch(texts: list[str], language: str) -> list[str]:
+    """Translate a small batch of strings without changing its length."""
+
+    if not texts:
+        return []
+
+    prompt = f"""
+Translate every text value below into {language}.
+
+Rules:
+- Return a JSON array of strings with exactly {len(texts)} elements.
+- Translate every descriptive sentence, phrase, heading, and label.
+- Preserve names, addresses, dates, case IDs, FIR/LR numbers,
+  statutory references and other identifiers accurately.
+- Translate explanations surrounding identifiers where appropriate.
+- Do not omit, combine, reorder, or duplicate any item.
+- Keep each translated string in the same array position.
+- Return valid JSON only, without Markdown fences.
+
+Input:
+{json.dumps(texts, ensure_ascii=False)}
+
+Output:
+"""
+
+    last_error = None
+
+    for attempt in range(MAX_ATTEMPTS):
+        try:
+            response = client.chat.completions.create(
+                model=MODEL,
+                messages=[
+                    {
+                        "role": "system",
+                        "content": (
+                            f"You are a professional translator into {language}. "
+                            "Translate every supplied text value accurately. "
+                            "Return only a valid JSON array of strings."
+                        ),
+                    },
+                    {"role": "user", "content": prompt},
+                ],
+                temperature=0.1,
+                max_tokens=4096,
+            )
+
+            if not response.choices:
+                raise ValueError("The AI returned no response.")
+
+            choice = response.choices[0]
+
+            if getattr(choice, "finish_reason", None) == "length":
+                raise ValueError("The translation response was truncated.")
+
+            result = choice.message.content
+
+            if not result:
+                raise ValueError("The AI returned an empty translation.")
+
+            result = result.strip()
+
+            if result.startswith("```"):
+                lines = result.splitlines()
+                if lines and lines[0].strip().startswith("```"):
+                    lines = lines[1:]
+                if lines and lines[-1].strip() == "```":
+                    lines = lines[:-1]
+                result = "\n".join(lines).strip()
+
+            translated = json.loads(result)
+
+            if (
+                not isinstance(translated, list)
+                or len(translated) != len(texts)
+                or not all(isinstance(item, str) for item in translated)
+            ):
+                raise ValueError(
+                    "The AI returned an incomplete translation batch."
+                )
+
+            return translated
+
+        except Exception as exc:
+            last_error = exc
+
+            if attempt < MAX_ATTEMPTS - 1:
+                time.sleep(1.0 * (attempt + 1))
+
+    raise ValueError(
+        f"Unable to translate a text batch into {language}. "
+        "Please try again."
+    ) from last_error
+
+
+def _collect_strings(value, path=()):
+    """Collect every non-empty string and its path in the JSON tree."""
+
+    collected = []
+
+    if isinstance(value, dict):
+        for key, child in value.items():
+            # JSON keys are intentionally preserved.
+            collected.extend(
+                _collect_strings(child, path + (key,))
+            )
+
+    elif isinstance(value, list):
+        for index, child in enumerate(value):
+            collected.extend(
+                _collect_strings(child, path + (index,))
+            )
+
+    elif isinstance(value, str) and value.strip():
+        collected.append((path, value))
+
+    return collected
+
+
+def _set_path(value, path, replacement):
+    """Replace a string at its original path."""
+
+    current = value
+
+    for part in path[:-1]:
+        current = current[part]
+
+    current[path[-1]] = replacement
+
+
+def translate_analysis(analysis: dict, target_language: str) -> dict:
     """
-    Translate AI-generated case analysis into the requested language.
+    Translate all string values throughout a structured analysis.
+    Preserve keys, identifiers, data types, list order and structure.
     """
+
+    if not isinstance(analysis, dict):
+        raise ValueError("The case analysis must be a JSON object.")
 
     target_language = target_language.lower().strip()
 
@@ -23,81 +162,34 @@ def translate_analysis(analysis: dict, target_language: str):
             "Unsupported language. Choose English, Hindi, Kannada, or Telugu."
         )
 
-    language_name = SUPPORTED_LANGUAGES[target_language]
-
-    # English does not need translation
     if target_language == "english":
         return analysis
 
-    prompt = f"""
-You are a professional legal document translation assistant.
+    language = SUPPORTED_LANGUAGES[target_language]
 
-Translate the following structured legal case analysis into {language_name}.
-
-IMPORTANT TRANSLATION RULES:
-
-1. Translate all descriptive and explanatory text into {language_name}.
-2. Translate the "summary" completely.
-3. Translate the "case_type" completely.
-4. Translate descriptive location names where appropriate.
-5. Preserve people's names exactly as they appear in the original.
-6. Preserve FIR numbers exactly as they appear.
-7. Preserve LR numbers exactly as they appear.
-8. Preserve case/reference numbers exactly as they appear.
-9. Preserve dates exactly as they appear.
-10. Preserve legal section numbers exactly as they appear.
-11. Do not invent or add any information.
-12. Do not remove any information.
-13. Do not change the meaning of the original information.
-14. Keep the exact JSON structure shown below.
-15. Return ONLY valid JSON. Do not return Markdown or explanations outside the JSON.
-
-For example:
-
-English:
-"case_type": "Road Accident"
-
-Hindi:
-"case_type": "सड़क दुर्घटना"
-
-Kannada:
-"case_type": "ರಸ್ತೆ ಅಪಘಾತ"
-
-Telugu:
-"case_type": "రోడ్డు ప్రమాదం"
-
-Names and identifiers must remain unchanged.
-
-Input analysis:
-
-{json.dumps(analysis, ensure_ascii=False, indent=2)}
-
-Return exactly this JSON structure:
-
-{{
-    "summary": "",
-    "case_type": "",
-    "people_involved": [],
-    "locations": [],
-    "important_dates": [],
-    "legal_sections": []
-}}
-"""
-
-    response = client.chat.completions.create(
-        model="openai/gpt-oss-20b",
-        messages=[
-            {
-                "role": "user",
-                "content": prompt
-            }
-        ],
-        temperature=0.2
+    # Work on a copy so the saved original analysis is not modified.
+    translated_analysis = json.loads(
+        json.dumps(analysis, ensure_ascii=False)
     )
 
-    result = response.choices[0].message.content
+    strings = _collect_strings(translated_analysis)
 
-    # Remove accidental Markdown code blocks
-    result = result.replace("```json", "").replace("```", "").strip()
+    if not strings:
+        return translated_analysis
 
-    return json.loads(result)
+    # Translate only the string values. This prevents the model from
+    # dropping fields or rebuilding the JSON structure incorrectly.
+    for start in range(0, len(strings), BATCH_SIZE):
+        batch = strings[start:start + BATCH_SIZE]
+        original_texts = [text for _, text in batch]
+
+        translated_texts = _translate_batch(original_texts, language)
+
+        for (path, _), translated_text in zip(batch, translated_texts):
+            _set_path(
+                translated_analysis,
+                path,
+                translated_text,
+            )
+
+    return translated_analysis
