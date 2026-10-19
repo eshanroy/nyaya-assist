@@ -641,3 +641,34 @@
   color: #111111;
   border-color: #ffffff;
 }
+
+
+
+.app-language-picker {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  margin-right: 16px;
+  color: #ff891f;
+}
+
+.app-language-picker select {
+  max-width: 180px;
+  padding: 9px 12px;
+  border: 1px solid #e4d5c7;
+  border-radius: 8px;
+  background: #fff;
+  color: #222;
+  font: inherit;
+}
+
+@media (max-width: 600px) {
+  .app-language-picker {
+    margin: 8px 0;
+  }
+
+  .app-language-picker select {
+    max-width: 150px;
+  }
+}

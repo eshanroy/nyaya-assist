@@ -1,3 +1,4 @@
+
 import json
 
 from app.database.database import SessionLocal
@@ -23,6 +24,15 @@ def save_case(filename: str, analysis: dict, user_id: int):
             ),
             legal_sections=json.dumps(
                 analysis.get("legal_sections", [])
+            ),
+            document_classification=json.dumps(
+                analysis.get("document_classification", {})
+            ),
+            next_steps=json.dumps(
+                analysis.get("next_steps", [])
+            ),
+            faqs=json.dumps(
+                analysis.get("faqs", [])
             ),
             user_id=user_id,
         )

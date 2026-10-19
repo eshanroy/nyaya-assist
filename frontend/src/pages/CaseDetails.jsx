@@ -1,12 +1,19 @@
 
 import { useEffect, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import {
+  Link,
+  useLocation,
+  useNavigate,
+  useParams,
+} from 'react-router-dom'
 import {
   Scale,
   ArrowLeft,
   FileText,
   RefreshCw,
   AlertCircle,
+  ListChecks,
+  MessageCircleQuestion,
 } from 'lucide-react'
 import api from '../api/client'
 import './CaseDetails.css'
@@ -37,7 +44,7 @@ const SECTION_LABELS = {
     legal_sections: 'ಕಾನೂನು ವಿಭಾಗಗಳು',
   },
   telugu: {
-    summary: 'సారాంశం',
+    summary: 'సారాంశ',
     case_type: 'కేసు రకం',
     people_involved: 'సంబంధిత వ్యక్తులు',
     locations: 'ప్రదేశాలు',
@@ -83,9 +90,7 @@ function renderValue(value, language, key = '') {
       <ul>
         {value.map((item, index) => (
           <li key={`${key}-${index}`}>
-            {typeof item === 'object' && item !== null
-              ? renderValue(item, language, `${key}-${index}`)
-              : renderValue(item, language, `${key}-${index}`)}
+            {renderValue(item, language, `${key}-${index}`)}
           </li>
         ))}
       </ul>
@@ -120,9 +125,139 @@ function renderValue(value, language, key = '') {
   return String(value)
 }
 
+function ClassificationCard({ classification, analysis }) {
+  const details = classification || {}
+
+  const fields = [
+    ['Document Type', details.document_type],
+    ['Case Type', details.case_type || analysis?.case_type],
+    ['Police Station', details.police_station],
+    ['Court', details.court],
+    ['FIR Number', details.fir_number],
+    ['Date of FIR', details.date_of_fir],
+  ]
+
+  return (
+    <section
+      id="classification"
+      className="case-details-card case-feature-card"
+    >
+      <h2>
+        <FileText size={20} />
+        Document Type &amp; Classification
+      </h2>
+
+      <div className="case-classification-grid">
+        {fields.map(([label, value]) => (
+          <div className="case-classification-field" key={label}>
+            <span>{label}</span>
+            <strong>
+              {value && String(value).trim()
+                ? value
+                : 'Not specified'}
+            </strong>
+          </div>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+function NextStepsCard({ nextSteps }) {
+  const steps = Array.isArray(nextSteps)
+    ? nextSteps
+    : typeof nextSteps === 'string' && nextSteps.trim()
+      ? [nextSteps]
+      : []
+
+  return (
+    <section
+      id="next-steps"
+      className="case-details-card case-feature-card"
+    >
+      <h2>
+        <ListChecks size={20} />
+        Next Steps / What You Can Do
+      </h2>
+
+      {steps.length > 0 ? (
+        <ol className="case-next-steps">
+          {steps.map((step, index) => (
+            <li key={`step-${index}`}>
+              {typeof step === 'string'
+                ? step
+                : renderValue(step, 'english', `step-${index}`)}
+            </li>
+          ))}
+        </ol>
+      ) : (
+        <p>
+          Next steps are not available for this saved case.
+          Re-analyze the document to generate recommendations.
+        </p>
+      )}
+
+      <p className="case-details-disclaimer">
+        These are AI-generated suggestions, not a substitute for
+        advice from a qualified lawyer.
+      </p>
+    </section>
+  )
+}
+
+function FAQsCard({ faqs }) {
+  const questions = Array.isArray(faqs) ? faqs : []
+
+  return (
+    <section
+      id="faqs"
+      className="case-details-card case-feature-card"
+    >
+      <h2>
+        <MessageCircleQuestion size={20} />
+        FAQs (AI Generated)
+      </h2>
+
+      {questions.length > 0 ? (
+        <div className="case-faq-list">
+          {questions.map((faq, index) => {
+            const question =
+              typeof faq === 'string'
+                ? faq
+                : faq?.question || `Question ${index + 1}`
+
+            const answer =
+              typeof faq === 'object' && faq !== null
+                ? faq.answer
+                : ''
+
+            return (
+              <details
+                className="case-faq-item"
+                key={`faq-${index}`}
+              >
+                <summary>{question}</summary>
+                <div className="case-faq-answer">
+                  {answer || 'No answer was provided.'}
+                </div>
+              </details>
+            )
+          })}
+        </div>
+      ) : (
+        <p>
+          FAQs are not available for this saved case.
+          Re-analyze the document to generate case-specific questions.
+        </p>
+      )}
+    </section>
+  )
+}
+
 export default function CaseDetails() {
   const { caseId } = useParams()
   const navigate = useNavigate()
+  const location = useLocation()
 
   const [caseData, setCaseData] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -164,6 +299,25 @@ export default function CaseDetails() {
     loadCase()
   }, [caseId, navigate])
 
+  useEffect(() => {
+    if (loading || !caseData || !location.hash) return
+
+    const sectionId = decodeURIComponent(location.hash.slice(1))
+
+    if (!['classification', 'next-steps', 'faqs'].includes(sectionId)) {
+      return
+    }
+
+    const timer = window.setTimeout(() => {
+      document.getElementById(sectionId)?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start',
+      })
+    }, 250)
+
+    return () => window.clearTimeout(timer)
+  }, [loading, caseData, location.hash, translatedAnalysis])
+
   async function handleTranslate() {
     if (language === 'english') {
       setTranslatedAnalysis(null)
@@ -197,7 +351,8 @@ export default function CaseDetails() {
     }
   }
 
-  const isTranslated = language !== 'english' && translatedAnalysis !== null
+  const isTranslated =
+    language !== 'english' && translatedAnalysis !== null
 
   const analysis = isTranslated
     ? translatedAnalysis
@@ -206,11 +361,10 @@ export default function CaseDetails() {
       : caseData
 
   const labels = SECTION_LABELS[language] || SECTION_LABELS.english
-
-  const summary =
-    analysis?.summary ||
-    caseData?.summary ||
-    ''
+  const summary = analysis?.summary || caseData?.summary || ''
+  const classification = analysis?.document_classification
+  const nextSteps = analysis?.next_steps
+  const faqs = analysis?.faqs
 
   const excludedKeys = new Set([
     'id',
@@ -226,6 +380,9 @@ export default function CaseDetails() {
     'important_dates',
     'legal_sections',
     'analysis',
+    'document_classification',
+    'next_steps',
+    'faqs',
   ])
 
   const preferredSections = [
@@ -328,9 +485,7 @@ export default function CaseDetails() {
 
             <p className="case-details-subtitle">
               Case ID: {caseData.id}
-              {analysis?.case_type
-                ? ` · ${analysis.case_type}`
-                : ''}
+              {analysis?.case_type ? ` · ${analysis.case_type}` : ''}
             </p>
 
             {isTranslated && (
@@ -345,9 +500,7 @@ export default function CaseDetails() {
               <h2>
                 <FileText size={20} /> {labels.summary}
               </h2>
-              <p>
-                {summary || 'No summary is available.'}
-              </p>
+              <p>{summary || 'No summary is available.'}</p>
             </section>
 
             {preferredSections.map((key) => {
@@ -358,10 +511,7 @@ export default function CaseDetails() {
               }
 
               return (
-                <section
-                  className="case-details-card"
-                  key={key}
-                >
+                <section className="case-details-card" key={key}>
                   <h2>{formatLabel(key, language)}</h2>
                   {renderValue(items, language, key) || (
                     <p>No information available.</p>
@@ -371,16 +521,22 @@ export default function CaseDetails() {
             })}
 
             {additionalSections.map((key) => (
-              <section
-                className="case-details-card"
-                key={key}
-              >
+              <section className="case-details-card" key={key}>
                 <h2>{formatLabel(key, language)}</h2>
                 {renderValue(analysis[key], language, key) || (
                   <p>No information available.</p>
                 )}
               </section>
             ))}
+
+            <ClassificationCard
+              classification={classification}
+              analysis={analysis}
+            />
+
+            <NextStepsCard nextSteps={nextSteps} />
+
+            <FAQsCard faqs={faqs} />
           </>
         )}
       </main>

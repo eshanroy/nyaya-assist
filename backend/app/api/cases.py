@@ -1,3 +1,4 @@
+
 import json
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -21,6 +22,49 @@ def get_db():
         db.close()
 
 
+def parse_json_field(value, default):
+    """Safely read JSON fields, including older or empty records."""
+    if not value:
+        return default
+
+    try:
+        parsed = json.loads(value)
+        return parsed if parsed is not None else default
+    except (json.JSONDecodeError, TypeError):
+        return default
+
+
+def serialize_case(case):
+    """Return all stored analysis fields for a case."""
+    return {
+        "id": case.id,
+        "filename": case.filename,
+        "summary": case.summary,
+        "case_type": case.case_type,
+        "people_involved": parse_json_field(
+            case.people_involved, []
+        ),
+        "locations": parse_json_field(
+            case.locations, []
+        ),
+        "important_dates": parse_json_field(
+            case.important_dates, []
+        ),
+        "legal_sections": parse_json_field(
+            case.legal_sections, []
+        ),
+        "document_classification": parse_json_field(
+            case.document_classification, {}
+        ),
+        "next_steps": parse_json_field(
+            case.next_steps, []
+        ),
+        "faqs": parse_json_field(
+            case.faqs, []
+        ),
+    }
+
+
 class TranslationRequest(BaseModel):
     language: str
 
@@ -35,21 +79,7 @@ def get_all_cases(
         Case.user_id == current_user.id
     ).all()
 
-    result = []
-
-    for case in cases:
-        result.append({
-            "id": case.id,
-            "filename": case.filename,
-            "summary": case.summary,
-            "case_type": case.case_type,
-            "people_involved": json.loads(case.people_involved or "[]"),
-            "locations": json.loads(case.locations or "[]"),
-            "important_dates": json.loads(case.important_dates or "[]"),
-            "legal_sections": json.loads(case.legal_sections or "[]"),
-        })
-
-    return result
+    return [serialize_case(case) for case in cases]
 
 
 # Get one of the logged-in user's cases
@@ -65,18 +95,12 @@ def get_case_by_id(
     ).first()
 
     if not case:
-        raise HTTPException(status_code=404, detail="Case not found")
+        raise HTTPException(
+            status_code=404,
+            detail="Case not found",
+        )
 
-    return {
-        "id": case.id,
-        "filename": case.filename,
-        "summary": case.summary,
-        "case_type": case.case_type,
-        "people_involved": json.loads(case.people_involved or "[]"),
-        "locations": json.loads(case.locations or "[]"),
-        "important_dates": json.loads(case.important_dates or "[]"),
-        "legal_sections": json.loads(case.legal_sections or "[]"),
-    }
+    return serialize_case(case)
 
 
 # Translate one of the logged-in user's cases
@@ -93,17 +117,13 @@ def translate_case(
     ).first()
 
     if not case:
-        raise HTTPException(status_code=404, detail="Case not found")
+        raise HTTPException(
+            status_code=404,
+            detail="Case not found",
+        )
 
     try:
-        analysis = {
-            "summary": case.summary,
-            "case_type": case.case_type,
-            "people_involved": json.loads(case.people_involved or "[]"),
-            "locations": json.loads(case.locations or "[]"),
-            "important_dates": json.loads(case.important_dates or "[]"),
-            "legal_sections": json.loads(case.legal_sections or "[]"),
-        }
+        analysis = serialize_case(case)
 
         translated_analysis = translate_analysis(
             analysis,
@@ -118,7 +138,10 @@ def translate_case(
         }
 
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(
+            status_code=400,
+            detail=str(e),
+        )
 
     except (json.JSONDecodeError, TypeError):
         raise HTTPException(

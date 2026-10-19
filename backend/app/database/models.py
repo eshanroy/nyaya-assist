@@ -13,6 +13,9 @@ class Case(Base):
     locations = Column(Text)
     important_dates = Column(Text)
     legal_sections = Column(Text)
+    document_classification = Column(Text)
+    next_steps = Column(Text)
+    faqs = Column(Text)
 
     # Account that owns this case
     user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
