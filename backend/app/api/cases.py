@@ -2,13 +2,14 @@
 import json
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.database.database import SessionLocal
 from app.database.models import Case
 from app.api.auth import get_current_user
 from app.services.translation_service import translate_analysis
+from app.services.chat_service import answer_document_question
 
 
 router = APIRouter()
@@ -35,7 +36,7 @@ def parse_json_field(value, default):
 
 
 def serialize_case(case):
-    """Return all stored analysis fields for a case."""
+    """Return analysis fields without exposing original document text."""
     return {
         "id": case.id,
         "filename": case.filename,
@@ -67,6 +68,14 @@ def serialize_case(case):
 
 class TranslationRequest(BaseModel):
     language: str
+
+
+class ChatRequest(BaseModel):
+    question: str = Field(
+        ...,
+        min_length=1,
+        max_length=2000,
+    )
 
 
 # Get only the logged-in user's cases
@@ -147,4 +156,71 @@ def translate_case(
         raise HTTPException(
             status_code=500,
             detail="Stored case data could not be read.",
+        )
+
+
+# Ask questions about a specific uploaded legal document
+@router.post("/cases/{case_id}/chat")
+def chat_with_case(
+    case_id: int,
+    request: ChatRequest,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    question = request.question.strip()
+
+    if not question:
+        raise HTTPException(
+            status_code=400,
+            detail="Question cannot be empty.",
+        )
+
+    # Check ownership before accessing the document text.
+    case = db.query(Case).filter(
+        Case.id == case_id,
+        Case.user_id == current_user.id,
+    ).first()
+
+    if not case:
+        raise HTTPException(
+            status_code=404,
+            detail="Case not found",
+        )
+
+    if not case.document_text or not case.document_text.strip():
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Original document text is unavailable for this case. "
+                "Upload the PDF again to enable document chat."
+            ),
+        )
+
+    try:
+        result = answer_document_question(
+            document_text=case.document_text,
+            question=question,
+        )
+
+        return {
+            "case_id": case.id,
+            "filename": case.filename,
+            "question": question,
+            "answer": result["answer"],
+            "sources": result["sources"],
+        }
+
+    except ValueError:
+        raise HTTPException(
+            status_code=502,
+            detail="The AI could not generate an answer.",
+        )
+
+    except Exception as exc:
+        print(
+            f"Document chat failed: {type(exc).__name__}: {exc}"
+        )
+        raise HTTPException(
+            status_code=500,
+            detail="An error occurred while answering your question.",
         )

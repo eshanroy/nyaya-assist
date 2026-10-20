@@ -151,3 +151,121 @@ Document:
     analysis.setdefault("faqs", [])
 
     return analysis
+
+
+def extract_timeline_events(text: str):
+    """
+    Extract dated case events from a legal document.
+    Dates and descriptions must be supported by the source text.
+    Returned events are suggestions and must remain unverified.
+    """
+    from datetime import date
+    import re
+
+    if not text or not text.strip():
+        return []
+
+    prompt = f"""
+You are extracting a factual chronology from a legal document.
+
+Return ONLY valid JSON in this exact structure:
+{{
+  "events": [
+    {{
+      "event_date": "YYYY-MM-DD",
+      "title": "Short factual event title",
+      "description": "Concise explanation supported by the document",
+      "source_excerpt": "Exact supporting excerpt copied from the document"
+    }}
+  ]
+}}
+
+STRICT RULES:
+1. Include only meaningful events related to the case.
+2. Include an event only when its date is explicitly supported by the text.
+3. Convert a date to YYYY-MM-DD only when its day, month, and year
+   are unambiguous. If ambiguous, omit that event.
+4. Do not include a person's date of birth, age, document-signing date,
+   or other administrative date as a case event unless the document
+   explicitly makes it relevant to the case chronology.
+5. A report date and an incident date are different events when the
+   document distinguishes them. Do not merge them.
+6. Do not invent events, dates, people, actions, or outcomes.
+7. Preserve allegations as allegations. Do not imply guilt.
+8. source_excerpt must be copied verbatim from the supplied text and
+   must directly support the event and its date.
+9. Do not infer an event solely from a date listed in a personal profile.
+10. Avoid duplicate events. Return an empty events array if no suitable
+    dated events can be supported.
+11. Do not mark events as verified; verification is handled separately.
+12. Return JSON only, without Markdown fences or commentary.
+
+Document:
+{text[:12000]}
+"""
+
+    response = client.chat.completions.create(
+        model="openai/gpt-oss-20b",
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0.1,
+    )
+
+    result = response.choices[0].message.content
+    if not result:
+        raise ValueError("The AI returned no timeline events.")
+
+    result = result.strip()
+    if result.startswith("```"):
+        result = re.sub(r"^```(?:json)?\s*", "", result)
+        result = re.sub(r"\s*```$", "", result).strip()
+
+    parsed = json.loads(result)
+    if not isinstance(parsed, dict):
+        raise ValueError("Invalid timeline extraction response.")
+
+    raw_events = parsed.get("events", [])
+    if not isinstance(raw_events, list):
+        return []
+
+    # Normalize whitespace so quoted excerpts can be checked reliably.
+    normalized_document = " ".join(text.split())
+    validated_events = []
+    seen = set()
+
+    for item in raw_events:
+        if not isinstance(item, dict):
+            continue
+
+        event_date = str(item.get("event_date", "")).strip()
+        title = str(item.get("title", "")).strip()
+        description = str(item.get("description", "")).strip()
+        excerpt = str(item.get("source_excerpt", "")).strip()
+
+        try:
+            parsed_date = date.fromisoformat(event_date)
+            if parsed_date.isoformat() != event_date:
+                continue
+        except (ValueError, TypeError):
+            continue
+
+        if not title or not excerpt or len(title) > 200:
+            continue
+
+        # Require the cited excerpt to occur in the source document.
+        if " ".join(excerpt.split()) not in normalized_document:
+            continue
+
+        dedupe_key = (event_date, title.casefold())
+        if dedupe_key in seen:
+            continue
+
+        seen.add(dedupe_key)
+        validated_events.append({
+            "event_date": event_date,
+            "title": title,
+            "description": description[:5000],
+            "source_excerpt": excerpt[:5000],
+            "is_verified": False,
+        })
+
+    return validated_events

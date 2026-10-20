@@ -8,10 +8,10 @@ from pwdlib import PasswordHash
 
 # Load environment variables from the project-root .env file.
 # auth_service.py is located at backend/app/services/.
-PROJECT_ROOT = os.path.abspath(
-    os.path.join(os.path.dirname(__file__), "../../../")
+BACKEND_ROOT = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), "../../")
 )
-ENV_FILE = os.path.join(PROJECT_ROOT, ".env")
+ENV_FILE = os.path.join(BACKEND_ROOT, ".env")
 load_dotenv(ENV_FILE)
 
 

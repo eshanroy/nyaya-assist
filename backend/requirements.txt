@@ -1,0 +1,16 @@
+fastapi
+uvicorn[standard]
+python-multipart
+sqlalchemy
+pydantic[email]
+groq
+python-dotenv
+PyJWT
+pwdlib[argon2]
+PyMuPDF
+Pillow
+pypdf
+pytesseract
+faiss-cpu
+numpy
+sentence-transformers
