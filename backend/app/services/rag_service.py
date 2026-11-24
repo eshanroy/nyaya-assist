@@ -1,10 +1,9 @@
-
 import faiss
 import numpy as np
-from sentence_transformers import SentenceTransformer
+from fastembed import TextEmbedding
 
 
-MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"
+MODEL_NAME = "BAAI/bge-small-en-v1.5"
 CHUNK_SIZE = 900
 CHUNK_OVERLAP = 150
 TOP_K = 4
@@ -17,7 +16,7 @@ def get_embedding_model():
     global _model
 
     if _model is None:
-        _model = SentenceTransformer(MODEL_NAME)
+        _model = TextEmbedding(model_name=MODEL_NAME)
 
     return _model
 
@@ -71,17 +70,19 @@ def retrieve_relevant_chunks(
 
     model = get_embedding_model()
 
-    document_vectors = model.encode(
-        chunks,
-        convert_to_numpy=True,
-        normalize_embeddings=True,
-    ).astype("float32")
+    document_vectors = np.array(
+        list(model.embed(chunks)),
+        dtype="float32",
+    )
 
-    question_vector = model.encode(
-        [question],
-        convert_to_numpy=True,
-        normalize_embeddings=True,
-    ).astype("float32")
+    question_vector = np.array(
+        list(model.embed([question])),
+        dtype="float32",
+    )
+
+    # Normalize embeddings for cosine-similarity-style retrieval.
+    faiss.normalize_L2(document_vectors)
+    faiss.normalize_L2(question_vector)
 
     index = faiss.IndexFlatIP(document_vectors.shape[1])
     index.add(document_vectors)
